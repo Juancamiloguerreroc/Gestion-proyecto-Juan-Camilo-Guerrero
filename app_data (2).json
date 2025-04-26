@@ -1,0 +1,93 @@
+{
+  "user": {
+    "id": 1,
+    "name": "Juan Guerrero",
+    "email": "juan.guerrero@ejemplo.com",
+    "phone": "+34 623 456 789",
+    "address": "Calle Principal 123, Madrid",
+    "avatar": "/api/placeholder/150/150",
+    "role": "Usuario",
+    "stats": {
+      "totalRequests": 9,
+      "pendingRequests": 4,
+      "completedRequests": 5
+    }
+  },
+  "requests": [
+    {
+      "id": 1,
+      "title": "Reparación de PC",
+      "serviceId": 1,
+      "serviceName": "Soporte Técnico",
+      "description": "Mi computadora está fallando al iniciar y emite pitidos extraños.",
+      "date": "2025-04-20",
+      "createdAt": "2025-04-10",
+      "status": "pending",
+      "priority": "alta"
+    },
+    {
+      "id": 2,
+      "title": "Instalación de servidor",
+      "serviceId": 2,
+      "serviceName": "Mantenimiento de Red",
+      "description": "Necesitamos instalar un nuevo servidor para nuestra oficina.",
+      "date": "2025-05-01",
+      "createdAt": "2025-04-05",
+      "status": "approved",
+      "priority": "media"
+    },
+    {
+      "id": 3,
+      "title": "Desarrollo de landing page",
+      "serviceId": 3,
+      "serviceName": "Desarrollo Web",
+      "description": "Necesitamos una página web para nuestra nueva campaña.",
+      "date": "2025-04-25",
+      "createdAt": "2025-03-30",
+      "status": "completed",
+      "priority": "baja"
+    },
+    {
+      "id": 4,
+      "title": "instalación",
+      "serviceId": 1,
+      "serviceName": "Soporte Técnico",
+      "description": "instalación urgente",
+      "date": "2025-04-15",
+      "createdAt": "2025-04-14",
+      "status": "pending",
+      "priority": "alta"
+    }
+  ],
+  "services": [
+    {
+      "id": 1,
+      "title": "Soporte Técnico",
+      "description": "Servicio de asistencia técnica para equipos informáticos.",
+      "category": "Informática",
+      "image": "/api/placeholder/300/200"
+    },
+    {
+      "id": 2,
+      "title": "Mantenimiento de Red",
+      "description": "Revisión y mantenimiento de infraestructura de red.",
+      "category": "Redes",
+      "image": "/api/placeholder/300/200"
+    },
+    {
+      "id": 3,
+      "title": "Desarrollo Web",
+      "description": "Desarrollo de sitios web personalizados para empresas.",
+      "category": "Desarrollo",
+      "image": "/api/placeholder/300/200"
+    },
+    {
+      "id": 4,
+      "title": "Seguridad Informática",
+      "description": "Auditorías y soluciones de seguridad para su empresa.",
+      "category": "Seguridad",
+      "image": "/api/placeholder/300/200"
+    }
+  ],
+  "lastUpdated": "2025-04-14T21:22:37.182Z"
+}

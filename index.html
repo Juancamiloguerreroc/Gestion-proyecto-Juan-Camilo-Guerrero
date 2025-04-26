@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="logo">GestServ</div>
+        <nav id="main-nav">
+            <ul>
+                <li><a href="index.html" class="active">Inicio</a></li>
+                <li><a href="login.html" id="loginLink">Iniciar Sesión</a></li>
+                <li><a href="register.html" id="registerLink">Registro</a></li>
+                <li class="hidden" id="adminLink"><a href="admin.html">Panel Admin</a></li>
+                <li class="hidden" id="viewerLink"><a href="viewer.html">Panel Viewer</a></li>
+                <li class="hidden" id="logoutBtn"><a href="#">Cerrar Sesión</a></li>
+            </ul>
+        </nav>
+        <div class="menu-toggle">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero">
+            <h1>Bienvenido al Sistema de Gestión</h1>
+            <p>Administra usuarios y servicios de forma eficiente</p>
+            <div class="cta-buttons">
+                <a href="login.html" class="btn primary">Iniciar Sesión</a>
+                <a href="register.html" class="btn">Registrarse</a>
+            </div>
+        </section>
+
+        <section class="features">
+            <h2>Características principales</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h3>Gestión de Usuarios</h3>
+                    <p>Control completo sobre los usuarios del sistema</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Gestión de Servicios</h3>
+                    <p>Administra todos los servicios disponibles</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Control de Acceso</h3>
+                    <p>Roles diferenciados con permisos específicos</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>GestorApp</h4>
+                <p>Sistema de gestión simple y efectivo</p>
+            </div>
+            <div class="footer-section">
+                <h4>Enlaces</h4>
+                <ul>
+                    <li><a href="index.html">Inicio</a></li>
+                    <li><a href="contact.html">Contacto</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Contacto</h4>
+                <p>info@gestorapp.com</p>
+                <p>+34 600 000 000</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2025 GestorApp. Todos los derechos reservados.</p>
+        </div>
+    </footer>
+
+    <script src="auth.js"></script>
+    <script>
+        // Comprueba la sesión al cargar la página y actualiza la navegación
+        document.addEventListener('DOMContentLoaded', () => {
+            checkSession();
+            
+            // Toggle menú móvil
+            document.querySelector('.menu-toggle').addEventListener('click', () => {
+                document.querySelector('#main-nav').classList.toggle('active');
+            });
+        });
+    </script>
+</body>
+</html>

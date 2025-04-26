@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Usuario - Gestión de Servicios</title>
+    <link rel="stylesheet" href="viewer-style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+</head>
+<body>
+    <header>
+        <div class="container header-container">
+            <div class="logo">
+                <a href="index.html">GestServ</a>
+            </div>
+            <button class="menu-toggle">
+                <i class="fas fa-bars"></i>
+            </button>
+            <nav id="main-nav">
+                <ul>
+                    <li><a href="index.html">Inicio</a></li>
+                    <li><a href="viewer.html" class="active">Mi Panel</a></li>
+                    <li><a href="contact.html">Contacto</a></li>
+                    <li class="nav-user user-menu">
+                        <a href="#" id="userNavLink">
+                            <i class="fas fa-user-circle"></i>
+                            <span id="userNavName"></span>
+                        </a>
+                        <div class="user-menu-dropdown" id="userMenuDropdown">
+                            <ul>
+                                <li><a href="#" id="viewProfileLink"><i class="fas fa-id-card"></i> Ver Perfil</a></li>
+                                <li><a href="#" id="editProfileLink"><i class="fas fa-user-edit"></i> Editar Perfil</a></li>
+                                <li class="divider"></li>
+                                <li><a href="#" id="logoutLink"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</a></li>
+                            </ul>
+                        </div>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <h1>Panel de Usuario</h1>
+            
+            <div class="tabs-container">
+                <div class="tabs-header">
+                    <button class="tab-btn active" data-tab="servicesTab">Servicios</button>
+                    <button class="tab-btn" data-tab="requestsTab">Mis Solicitudes</button>
+                    <button class="tab-btn" data-tab="profileTab">Mi Perfil</button>
+                </div>
+                
+                <div class="tabs-content">
+                    <!-- Tab Servicios -->
+                    <div id="servicesTab" class="tab-content">
+                        <h2>Servicios Disponibles</h2>
+                        <div id="servicesList" class="services-grid">
+                            <!-- Los servicios se cargarán dinámicamente -->
+                            <div class="loader-container">
+                                <div class="loader"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tab Solicitudes -->
+                    <div id="requestsTab" class="tab-content hidden">
+                        <h2>Mis Solicitudes</h2>
+                        <div class="request-actions">
+                            <div class="request-filters">
+                                <select id="statusFilter" class="filter-select">
+                                    <option value="all">Todos los estados</option>
+                                    <option value="pending">Pendientes</option>
+                                    <option value="approved">Aprobadas</option>
+                                    <option value="rejected">Rechazadas</option>
+                                </select>
+                                <select id="dateFilter" class="filter-select">
+                                    <option value="all">Todas las fechas</option>
+                                    <option value="today">Hoy</option>
+                                    <option value="week">Esta semana</option>
+                                    <option value="month">Este mes</option>
+                                </select>
+                            </div>
+                            <button id="newRequestBtn" class="button primary-button">
+                                <i class="fas fa-plus"></i> Nueva Solicitud
+                            </button>
+                        </div>
+                        <div id="requestsList" class="requests-list">
+                            <!-- Las solicitudes se cargarán dinámicamente -->
+                            <div class="loader-container">
+                                <div class="loader"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tab Perfil -->
+                    <div id="profileTab" class="tab-content hidden">
+                        <div id="userProfile" class="user-profile">
+                            <!-- El perfil se cargará dinámicamente -->
+                            <div class="loader-container">
+                                <div class="loader"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal para crear nueva solicitud -->
+    <div class="modal-overlay" id="requestModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Nueva Solicitud de Servicio</h3>
+                <button class="close-modal" id="closeModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="requestForm">
+                    <div class="form-group">
+                        <label for="serviceSelect">Servicio</label>
+                        <select id="serviceSelect" required>
+                            <option value="">Selecciona un servicio</option>
+                            <!-- Las opciones se cargarán dinámicamente -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="requestTitle">Título de la solicitud</label>
+                        <input type="text" id="requestTitle" placeholder="Ej. Instalación de sistema" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="requestDescription">Descripción</label>
+                        <textarea id="requestDescription" placeholder="Describe los detalles de tu solicitud..." required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="requestDate">Fecha deseada</label>
+                        <input type="date" id="requestDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="requestPriority">Prioridad</label>
+                        <select id="requestPriority" required>
+                            <option value="baja">Baja</option>
+                            <option value="media" selected>Media</option>
+                            <option value="alta">Alta</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button id="cancelRequest" class="button secondary-button">Cancelar</button>
+                <button id="submitRequest" class="button primary-button">Enviar Solicitud</button>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>GestServ</h3>
+                    <p>Tu plataforma de gestión de servicios</p>
+                </div>
+                <div class="footer-section">
+                    <h3>Enlaces</h3>
+                    <ul>
+                        <li><a href="index.html">Inicio</a></li>
+                        <li><a href="contact.html">Contacto</a></li>
+                        <li><a href="#">Términos y Condiciones</a></li>
+                        <li><a href="#">Política de Privacidad</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>Contacto</h3>
+                    <p><i class="fas fa-envelope"></i> info@gestserv.com</p>
+                    <p><i class="fas fa-phone"></i> +34 912 345 678</p>
+                </div>
+                <div class="footer-section">
+                    <h3>Síguenos</h3>
+                    <div class="social-icons">
+                        <a href="#"><i class="fab fa-facebook"></i></a>
+                        <a href="#"><i class="fab fa-twitter"></i></a>
+                        <a href="#"><i class="fab fa-instagram"></i></a>
+                        <a href="#"><i class="fab fa-linkedin"></i></a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 GestServ. Todos los derechos reservados.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="auth.js"></script>
+    <script src="viewer.js"></script>
+</body>
+</html>
