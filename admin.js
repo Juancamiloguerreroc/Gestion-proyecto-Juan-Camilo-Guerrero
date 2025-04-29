@@ -51,15 +51,12 @@ function setupTabs() {
 }
 
 // Cargar y mostrar usuarios en la tabla
-function loadUsers() {
-    const users = JSON.parse(localStorage.getItem('users')) || [];
-    const usersTableBody = document.getElementById('usersTableBody');
-    
-    // Limpiar tabla
-    usersTableBody.innerHTML = '';
-    
-    // Mostrar cada usuario en la tabla
+async function loadUsers() {
+    const usersList = document.getElementById('usersList');
+    usersList.innerHTML = '';
+    const users = await db.performTransaction('users', 'readonly', store => store.getAll());
     users.forEach(user => {
+        // Renderiza cada usuario como lo hacías antes
         const row = document.createElement('tr');
         
         row.innerHTML = `
@@ -242,15 +239,12 @@ function updateUser(userId, userData) {
 }
 
 // Cargar y mostrar servicios en la tabla
-function loadServices() {
-    const services = JSON.parse(localStorage.getItem('services')) || [];
-    const servicesTableBody = document.getElementById('servicesTableBody');
-    
-    // Limpiar tabla
-    servicesTableBody.innerHTML = '';
-    
-    // Mostrar cada servicio en la tabla
+async function loadServices() {
+    const servicesList = document.getElementById('servicesList');
+    servicesList.innerHTML = '';
+    const services = await db.getServices();
     services.forEach(service => {
+        // Renderiza cada servicio como lo hacías antes
         const row = document.createElement('tr');
         
         row.innerHTML = `
@@ -312,18 +306,9 @@ function editService(serviceId) {
 }
 
 // Eliminar servicio
-function deleteService(serviceId) {
-    if (!confirm('¿Está seguro de eliminar este servicio?')) return;
-    
-    let services = JSON.parse(localStorage.getItem('services')) || [];
-    services = services.filter(service => service.id !== serviceId);
-    
-    localStorage.setItem('services', JSON.stringify(services));
-    
-    // Recargar la tabla
-    loadServices();
-    
-    showMessage('Servicio eliminado correctamente', 'success');
+async function deleteService(serviceId) {
+    await db.performTransaction('services', 'readwrite', store => store.delete(serviceId));
+    await loadServices();
 }
 
 // Configurar formulario de servicios
@@ -421,6 +406,11 @@ function updateService(serviceId, serviceData) {
     showMessage('Servicio actualizado correctamente', 'success');
 }
 
+async function addService(serviceData) {
+    await db.addService(serviceData);
+    await loadServices();
+}
+
 // Funciones de utilidad
 
 // Generar ID único
@@ -474,4 +464,55 @@ function showMessage(message, type) {
             messageContainer.remove();
         }, 3000);
     }
+}
+
+async function addService(serviceData) {
+    await db.addService(serviceData);
+    await loadServices();
+}
+
+async function loadRequests() {
+    const requestsList = document.getElementById('requestsList');
+    requestsList.innerHTML = '';
+    const requests = await db.getRequests();
+    
+    // Crear tabla si no existe
+    if (!requestsList.querySelector('table')) {
+        requestsList.innerHTML = `
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Título</th>
+                        <th>Servicio</th>
+                        <th>Usuario</th>
+                        <th>Fecha</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="requestsTableBody"></tbody>
+            </table>
+        `;
+    }
+    
+    const requestsTableBody = document.getElementById('requestsTableBody');
+    requestsTableBody.innerHTML = '';
+    
+    requests.forEach(request => {
+        const row = document.createElement('tr');
+        
+        row.innerHTML = `
+            <td>${request.title}</td>
+            <td>${request.serviceName}</td>
+            <td>${request.userName || 'Usuario #' + request.userId}</td>
+            <td>${request.date}</td>
+            <td>${request.status === 'pending' ? 'Pendiente' : 'Completada'}</td>
+            <td>
+                <button class="action-btn edit-btn" data-id="${request.id}">Editar</button>
+                <button class="action-btn delete-btn" data-id="${request.id}">Eliminar</button>
+            </td>
+        `;
+        
+        requestsTableBody.appendChild(row);
+    });
 }

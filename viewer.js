@@ -1,107 +1,63 @@
-// Datos mock para demostración
-const mockUser = {
-    id: 1,
-    name: "Carlos Rodríguez",
-    email: "carlos.rodriguez@ejemplo.com",
-    phone: "+34 623 456 789",
-    address: "Calle Principal 123, Madrid",
-    avatar: "/api/placeholder/150/150",
-    role: "Usuario",
-    stats: {
-        totalRequests: 8,
-        pendingRequests: 3,
-        completedRequests: 5
-    }
-};
-
-const mockServices = [
-    {
-        id: 1,
-        title: "Soporte Técnico",
-        description: "Servicio de asistencia técnica para equipos informáticos.",
-        category: "Informática",
-        image: "/api/placeholder/300/200"
-    },
-    {
-        id: 2,
-        title: "Mantenimiento de Red",
-        description: "Revisión y mantenimiento de infraestructura de red.",
-        category: "Redes",
-        image: "/api/placeholder/300/200"
-    },
-    {
-        id: 3,
-        title: "Desarrollo Web",
-        description: "Desarrollo de sitios web personalizados para empresas.",
-        category: "Desarrollo",
-        image: "/api/placeholder/300/200"
-    },
-    {
-        id: 4,
-        title: "Seguridad Informática",
-        description: "Auditorías y soluciones de seguridad para su empresa.",
-        category: "Seguridad",
-        image: "/api/placeholder/300/200"
-    }
-];
-
-let mockRequests = [
-    {
-        id: 1,
-        title: "Reparación de PC",
-        serviceId: 1,
-        serviceName: "Soporte Técnico",
-        description: "Mi computadora está fallando al iniciar y emite pitidos extraños.",
-        date: "2025-04-20",
-        createdAt: "2025-04-10",
-        status: "pending",
-        priority: "alta"
-    },
-    {
-        id: 2,
-        title: "Instalación de servidor",
-        serviceId: 2,
-        serviceName: "Mantenimiento de Red",
-        description: "Necesitamos instalar un nuevo servidor para nuestra oficina.",
-        date: "2025-05-01",
-        createdAt: "2025-04-05",
-        status: "approved",
-        priority: "media"
-    },
-    {
-        id: 3,
-        title: "Desarrollo de landing page",
-        serviceId: 3,
-        serviceName: "Desarrollo Web",
-        description: "Necesitamos una página web para nuestra nueva campaña.",
-        date: "2025-04-25",
-        createdAt: "2025-03-30",
-        status: "completed",
-        priority: "baja"
-    }
-];
+// Usar la clase Database global
+let db;
 
 // Elementos DOM
-document.addEventListener('DOMContentLoaded', function() {
-    // Inicializar interfaz
-    initUI();
-    
-    // Manejar navegación de pestañas
-    initTabNavigation();
-    
-    // Cargar datos iniciales
-    loadUserData();
-    loadServices();
-    loadRequests();
-    
-    // Inicializar menú de usuario
-    initUserMenu();
-    
-    // Inicializar modal de solicitudes
-    initRequestModal();
-    
-    // Inicializar filtros
-    initFilters();
+document.addEventListener('DOMContentLoaded', async function() {
+    // Verificar sessionStorage
+    try {
+        sessionStorage.setItem('test', 'test');
+        sessionStorage.removeItem('test');
+    } catch (e) {
+        showNotification('Error crítico: sessionStorage no está disponible', 'error');
+        return;
+    }
+
+    try {
+        // Crear instancia de Database
+        db = new Database();
+        
+        // Inicializar base de datos primero
+        await db.initDatabase().catch(error => {
+            console.error('Error inicializando DB:', error);
+            showNotification('Error crítico: No se pudo iniciar la base de datos', 'error');
+            throw error; // Detener ejecución si falla la inicialización
+        });
+        
+        // Verificar si hay un usuario con sesión activa
+        const currentUser = JSON.parse(sessionStorage.getItem('currentUser'));
+        
+        if (!currentUser) {
+            // Si no hay usuario con sesión, redirigir al login
+            window.location.href = 'login.html';
+            return;
+        }
+        
+        // Continuar con la inicialización
+        await db.initDefaultServices();
+
+        // Inicializar interfaz
+        initUI();
+        
+        // Manejar navegación de pestañas
+        initTabNavigation();
+        
+        // Cargar datos iniciales desde la base de datos
+        await loadUserData();
+        await loadServices();
+        await loadRequests();
+        
+        // Inicializar menú de usuario
+        initUserMenu();
+        
+        // Inicializar modal de solicitudes (asegúrate de que sea async si usa await internamente)
+        await initRequestModal();
+        
+        // Inicializar filtros
+        initFilters();
+    } catch (error) {
+        console.error('Error al inicializar la aplicación:', error);
+        showNotification('Error al cargar la aplicación', 'error');
+    }
 });
 
 // Iniciar elementos UI básicos
@@ -152,46 +108,73 @@ function initTabNavigation() {
 }
 
 // Cargar datos del usuario
-function loadUserData() {
-    // Mostrar nombre de usuario en la navegación
-    const userNavName = document.getElementById('userNavName');
-    if (userNavName) {
-        userNavName.textContent = mockUser.name;
+async function loadUserData() {
+    try {
+        // Obtener usuario de sessionStorage
+        const userDataStr = sessionStorage.getItem('currentUser');
+        let user = userDataStr ? JSON.parse(userDataStr) : null;
+        
+        // Si no hay usuario en sessionStorage, intentar obtenerlo de la base de datos
+        if (!user && db.getCurrentUser) {
+            user = await db.getCurrentUser();
+        }
+        
+        // Si aún no hay usuario, redirigir al login
+        if (!user) {
+            window.location.href = 'login.html';
+            return;
+        }
+        
+        // Actualizar nombre en la navegación
+        const userNavName = document.getElementById('userNavName');
+        if (userNavName) {
+            userNavName.textContent = user.name || user.nombre || '';
+        }
+        
+        // Cargar datos del perfil completo en su pestaña
+        await renderUserProfile(user);
+    } catch (error) {
+        console.error('Error al cargar datos del usuario:', error);
+        showNotification('Error al cargar datos del usuario', 'error');
     }
-    
-    // Cargar datos del perfil completo en su pestaña
-    renderUserProfile();
 }
 
 // Mostrar perfil de usuario
-function renderUserProfile() {
+async function renderUserProfile(user) {
     const userProfile = document.getElementById('userProfile');
     
-    if (!userProfile) return;
+    if (!userProfile || !user) return;
+    
+    // Asegurarse de que user.stats exista
+    const stats = user.stats || {
+        totalRequests: 0,
+        pendingRequests: 0,
+        completedRequests: 0
+    };
     
     userProfile.innerHTML = `
         <div class="profile-header">
             <div class="profile-avatar">
-                <img src="${mockUser.avatar}" alt="${mockUser.name}">
+                <img src="${user.avatar || 'assets/default-avatar.png'}" alt="${user.name || user.nombre || 'Usuario'}" onerror="this.src='assets/default-avatar.png'">
             </div>
             <div class="profile-info">
-                <h2>${mockUser.name}</h2>
-                <p>${mockUser.email}</p>
-                <p><i class="fas fa-phone"></i> ${mockUser.phone}</p>
+                <h2>${user.name || user.nombre || 'Usuario'}</h2>
+                <p>${user.email || ''}</p>
+                <p><i class="fas fa-phone"></i> ${user.phone || 'No especificado'}</p>
             </div>
         </div>
         
         <div class="profile-stats">
             <div class="stat-card">
-                <div class="stat-value">${mockUser.stats.totalRequests}</div>
+                <div class="stat-value">${stats.totalRequests || 0}</div>
                 <div class="stat-label">Total Solicitudes</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">${mockUser.stats.pendingRequests}</div>
+                <div class="stat-value">${stats.pendingRequests || 0}</div>
                 <div class="stat-label">Pendientes</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">${mockUser.stats.completedRequests}</div>
+                <div class="stat-value">${stats.completedRequests || 0}</div>
                 <div class="stat-label">Completadas</div>
             </div>
         </div>
@@ -201,19 +184,19 @@ function renderUserProfile() {
             <div class="profile-form">
                 <div class="form-group">
                     <label for="profileName">Nombre Completo</label>
-                    <input type="text" id="profileName" value="${mockUser.name}" disabled>
+                    <input type="text" id="profileName" value="${user.name}" disabled>
                 </div>
                 <div class="form-group">
                     <label for="profileEmail">Correo Electrónico</label>
-                    <input type="email" id="profileEmail" value="${mockUser.email}" disabled>
+                    <input type="email" id="profileEmail" value="${user.email}" disabled>
                 </div>
                 <div class="form-group">
                     <label for="profilePhone">Teléfono</label>
-                    <input type="tel" id="profilePhone" value="${mockUser.phone}" disabled>
+                    <input type="tel" id="profilePhone" value="${user.phone || 'No especificado'}" disabled>
                 </div>
                 <div class="form-group">
                     <label for="profileAddress">Dirección</label>
-                    <input type="text" id="profileAddress" value="${mockUser.address}" disabled>
+                    <input type="text" id="profileAddress" value="${user.address || 'No especificada'}" disabled>
                 </div>
                 <div class="form-actions">
                     <button id="editProfileButton" class="button primary-button">Editar Perfil</button>
@@ -230,241 +213,310 @@ function renderUserProfile() {
             inputs.forEach(input => {
                 input.disabled = false;
             });
-            
-            // Cambiar botón a Guardar
+
             this.textContent = 'Guardar Cambios';
             this.removeEventListener('click', arguments.callee);
-            
-            // Añadir evento para guardar
-            this.addEventListener('click', function() {
-                // Aquí se implementaría la lógica para guardar los cambios
-                const inputs = userProfile.querySelectorAll('input:not([disabled])');
-                inputs.forEach(input => {
-                    // Actualizar datos mock
-                    mockUser[input.id.replace('profile', '').toLowerCase()] = input.value;
-                    input.disabled = true;
-                });
-                
-                // Restaurar botón
-                this.textContent = 'Editar Perfil';
-                this.addEventListener('click', arguments.callee);
-                
-                // Actualizar nombre en la barra de navegación
-                const userNavName = document.getElementById('userNavName');
-                if (userNavName) {
-                    userNavName.textContent = mockUser.name;
+
+            this.addEventListener('click', async function() {
+                const updatedUser = {
+                    ...user,
+                    name: document.getElementById('profileName').value.trim(),
+                    email: document.getElementById('profileEmail').value.trim(),
+                    phone: document.getElementById('profilePhone').value.trim(),
+                    address: document.getElementById('profileAddress').value.trim()
+                };
+
+                // Validación básica
+                if (!updatedUser.name || !updatedUser.email) {
+                    showNotification('Nombre y correo son obligatorios', 'error');
+                    return;
                 }
-                
-                // Mostrar mensaje de éxito
-                showNotification('Perfil actualizado correctamente', 'success');
+
+                try {
+                    await db.updateUser(updatedUser.id, updatedUser);
+                    inputs.forEach(input => input.disabled = true);
+                    this.textContent = 'Editar Perfil';
+                    this.addEventListener('click', arguments.callee);
+
+                    const userNavName = document.getElementById('userNavName');
+                    if (userNavName) {
+                        userNavName.textContent = updatedUser.name;
+                    }
+                    showNotification('Perfil actualizado correctamente', 'success');
+                } catch (error) {
+                    showNotification('Error al actualizar el perfil', 'error');
+                }
             });
         });
     }
 }
 
 // Cargar lista de servicios
-function loadServices() {
+async function loadServices() {
     const servicesList = document.getElementById('servicesList');
-    
     if (!servicesList) return;
-    
-    // Limpiar contenedor
-    servicesList.innerHTML = '';
-    
-    if (mockServices.length === 0) {
+
+    // Mostrar loader
+    servicesList.innerHTML = `
+        <div class="loader-container">
+            <div class="loader"></div>
+        </div>
+    `;
+
+    // Timeout para evitar carga infinita
+    let timeoutId = setTimeout(() => {
         servicesList.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-tools"></i>
-                <h3>No hay servicios disponibles en este momento</h3>
-                <p>Pronto añadiremos nuevos servicios para ti</p>
+            <div class="empty-state error">
+                <i class="fas fa-exclamation-circle"></i>
+                <h3>Error al cargar los servicios</h3>
+                <p>La carga está tomando demasiado tiempo. Intenta recargar la página.</p>
             </div>
         `;
-        return;
-    }
-    
-    // Renderizar cada servicio
-    mockServices.forEach(service => {
-        const serviceCard = document.createElement('div');
-        serviceCard.className = 'service-card';
-        serviceCard.innerHTML = `
-            <div class="service-image">
-                <img src="${service.image}" alt="${service.title}">
-            </div>
-            <div class="service-content">
-                <span class="category">${service.category}</span>
-                <h3>${service.title}</h3>
-                <p>${service.description}</p>
-                <div class="service-actions">
-                    <button class="button primary-button request-service-btn" data-service-id="${service.id}">Solicitar</button>
+    }, 8000); // 8 segundos
+
+    try {
+        const services = await db.getServices();
+        clearTimeout(timeoutId);
+
+        servicesList.innerHTML = '';
+
+        if (!services || services.length === 0) {
+            servicesList.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-tools"></i>
+                    <h3>No hay servicios disponibles en este momento</h3>
+                    <p>Pronto añadiremos nuevos servicios para ti</p>
                 </div>
+            `;
+            return;
+        }
+
+        services.forEach(service => {
+            const serviceCard = document.createElement('div');
+            serviceCard.className = 'service-card';
+            serviceCard.innerHTML = `
+                <div class="service-image">
+                    <img src="${service.image}" alt="${service.title || service.name}" onerror="this.src='assets/images/default-service.jpg'">
+                </div>
+                <div class="service-content">
+                    <span class="category">${service.category || ''}</span>
+                    <h3>${service.title || service.name}</h3>
+                    <p>${service.description}</p>
+                    <div class="service-price">
+                        <span class="price">${service.price ? service.price.toFixed(2) : '0.00'} €</span>
+                    </div>
+                    <div class="service-actions">
+                        <button class="button primary-button request-service-btn" data-service-id="${service.id}">
+                            Solicitar Servicio
+                        </button>
+                    </div>
+                </div>
+            `;
+            servicesList.appendChild(serviceCard);
+        });
+
+        // Añadir eventos a los botones de solicitar
+        document.querySelectorAll('.request-service-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const serviceId = parseInt(this.getAttribute('data-service-id'));
+                openRequestModal(serviceId);
+            });
+        });
+    } catch (error) {
+        clearTimeout(timeoutId);
+        console.error('Error al cargar servicios:', error);
+        servicesList.innerHTML = `
+            <div class="empty-state error">
+                <i class="fas fa-exclamation-circle"></i>
+                <h3>Error al cargar los servicios</h3>
+                <p>Por favor, intenta recargar la página</p>
             </div>
         `;
-        
-        servicesList.appendChild(serviceCard);
-    });
-    
-    // Añadir eventos a los botones de solicitar
-    document.querySelectorAll('.request-service-btn').forEach(button => {
-        button.addEventListener('click', function() {
-            const serviceId = parseInt(this.getAttribute('data-service-id'));
-            openRequestModal(serviceId);
-        });
-    });
+    }
 }
 
-// Cargar solicitudes
-function loadRequests(filter = 'all', dateFilter = 'all') {
-    const requestsList = document.getElementById('requestsList');
-    
-    if (!requestsList) return;
-    
-    // Limpiar contenedor
-    requestsList.innerHTML = '';
-    
-    // Filtrar solicitudes
-    let filteredRequests = [...mockRequests];
-    
-    if (filter !== 'all') {
-        filteredRequests = filteredRequests.filter(request => request.status === filter);
-    }
-    
-    // Filtrar por fecha
-    if (dateFilter !== 'all') {
-        const today = new Date();
-        const todayStr = today.toISOString().split('T')[0];
+
+async function loadRequests(filter = 'all', dateFilter = 'all') {
+    try {
+        const user = await db.getCurrentUser();
+        const requests = await db.getRequests(user.id);
+        const requestsList = document.getElementById('requestsList');
         
-        switch(dateFilter) {
-            case 'today':
-                filteredRequests = filteredRequests.filter(request => {
-                    return request.createdAt === todayStr;
-                });
-                break;
-            case 'week':
-                const oneWeekAgo = new Date();
-                oneWeekAgo.setDate(today.getDate() - 7);
-                filteredRequests = filteredRequests.filter(request => {
-                    const requestDate = new Date(request.createdAt);
-                    return requestDate >= oneWeekAgo;
-                });
-                break;
-            case 'month':
-                const oneMonthAgo = new Date();
-                oneMonthAgo.setMonth(today.getMonth() - 1);
-                filteredRequests = filteredRequests.filter(request => {
-                    const requestDate = new Date(request.createdAt);
-                    return requestDate >= oneMonthAgo;
-                });
-                break;
-        }
-    }
-    
-    if (filteredRequests.length === 0) {
-        requestsList.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-clipboard-list"></i>
-                <h3>No hay solicitudes que mostrar</h3>
-                <p>Crea una nueva solicitud para comenzar</p>
-            </div>
-        `;
-        return;
-    }
-    
-    // Renderizar cada solicitud
-    filteredRequests.forEach(request => {
-        const requestCard = document.createElement('div');
-        requestCard.className = 'request-card';
+        if (!requestsList) return;
         
-        // Definir color lateral según estado
-        if (request.status === 'pending') {
-            requestCard.style.borderLeftColor = 'var(--warning-color)';
-        } else if (request.status === 'approved') {
-            requestCard.style.borderLeftColor = 'var(--success-color)';
-        } else if (request.status === 'rejected') {
-            requestCard.style.borderLeftColor = 'var(--danger-color)';
-        } else if (request.status === 'completed') {
-            requestCard.style.borderLeftColor = 'var(--primary-color)';
+        // Limpiar contenedor
+        requestsList.innerHTML = '';
+        
+        // Si no hay solicitudes o es null/undefined, mostrar mensaje inicial
+        if (!requests || requests.length === 0) {
+            requestsList.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-clipboard-list"></i>
+                    <h3>Aún no se han realizado solicitudes</h3>
+                    <p>Crea una nueva solicitud para comenzar</p>
+                </div>
+            `;
+            return;
         }
         
-        // Traducir estados para mostrar
-        const statusTexts = {
-            'pending': 'Pendiente',
-            'approved': 'Aprobada',
-            'rejected': 'Rechazada',
-            'completed': 'Completada'
-        };
+        // Filtrar solicitudes
+        let filteredRequests = [...requests];
         
-        const statusClasses = {
-            'pending': 'status-pending',
-            'approved': 'status-approved',
-            'rejected': 'status-rejected',
-            'completed': 'status-approved'
-        };
-        
-        // Traducir prioridades
-        const priorityTexts = {
-            'baja': 'Baja',
-            'media': 'Media',
-            'alta': 'Alta'
-        };
-        
-        // Formatear fechas
-        const formattedCreatedDate = formatDate(request.createdAt);
-        const formattedDate = formatDate(request.date);
-        
-        requestCard.innerHTML = `
-            <div class="request-header">
-                <h3 class="request-title">${request.title}</h3>
-                <span class="request-status ${statusClasses[request.status]}">${statusTexts[request.status]}</span>
-            </div>
-            <div class="request-details">
-                <div class="request-detail">
-                    <span class="detail-label">Servicio</span>
-                    <span class="detail-value">${request.serviceName}</span>
-                </div>
-                <div class="request-detail">
-                    <span class="detail-label">Fecha Creación</span>
-                    <span class="detail-value">${formattedCreatedDate}</span>
-                </div>
-                <div class="request-detail">
-                    <span class="detail-label">Fecha Solicitada</span>
-                    <span class="detail-value">${formattedDate}</span>
-                </div>
-                <div class="request-detail">
-                    <span class="detail-label">Prioridad</span>
-                    <span class="detail-value">${priorityTexts[request.priority]}</span>
-                </div>
-            </div>
-            <div class="request-description">
-                ${request.description}
-            </div>
-            <div class="request-footer">
-                ${request.status === 'pending' ? 
-                    `<button class="button secondary-button cancel-request-btn" data-request-id="${request.id}">Cancelar</button>` : ''}
-                <button class="button primary-button view-request-btn" data-request-id="${request.id}">Ver Detalles</button>
-            </div>
-        `;
-        
-        requestsList.appendChild(requestCard);
-    });
+        if (filter !== 'all') {
+            filteredRequests = filteredRequests.filter(request => request.status === filter);
+        }
     
-    // Añadir eventos a los botones de cancelar solicitud
-    document.querySelectorAll('.cancel-request-btn').forEach(button => {
-        button.addEventListener('click', function() {
-            const requestId = parseInt(this.getAttribute('data-request-id'));
-            cancelRequest(requestId);
-        });
-    });
+        // Filtrar por fecha
+        if (dateFilter !== 'all') {
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+            
+            switch(dateFilter) {
+                case 'today':
+                    filteredRequests = filteredRequests.filter(request => {
+                        return request.createdAt === todayStr;
+                    });
+                    break;
+                case 'week':
+                    const oneWeekAgo = new Date();
+                    oneWeekAgo.setDate(today.getDate() - 7);
+                    filteredRequests = filteredRequests.filter(request => {
+                        const requestDate = new Date(request.createdAt);
+                        return requestDate >= oneWeekAgo;
+                    });
+                    break;
+                case 'month':
+                    const oneMonthAgo = new Date();
+                    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1); // Error corregido
+                    filteredRequests = filteredRequests.filter(request => {
+                        const requestDate = new Date(request.createdAt);
+                        return requestDate >= oneMonthAgo;
+                    });
+                    break;
+            }
+        }
     
-    // Añadir eventos a los botones de ver detalles
-    document.querySelectorAll('.view-request-btn').forEach(button => {
-        button.addEventListener('click', function() {
-            const requestId = parseInt(this.getAttribute('data-request-id'));
-            viewRequestDetails(requestId);
+        if (filteredRequests.length === 0) {
+            requestsList.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-clipboard-list"></i>
+                    <h3>No hay solicitudes que coincidan con los filtros</h3>
+                    <p>Intenta con otros filtros o crea una nueva solicitud</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Renderizar cada solicitud
+        filteredRequests.forEach(request => {
+            const requestCard = document.createElement('div');
+            requestCard.className = 'request-card';
+            
+            // Definir color lateral según estado
+            if (request.status === 'pending') {
+                requestCard.style.borderLeftColor = 'var(--warning-color)';
+            } else if (request.status === 'approved') {
+                requestCard.style.borderLeftColor = 'var(--success-color)';
+            } else if (request.status === 'rejected') {
+                requestCard.style.borderLeftColor = 'var(--danger-color)';
+            } else if (request.status === 'completed') {
+                requestCard.style.borderLeftColor = 'var(--primary-color)';
+            }
+            
+            // Traducir estados para mostrar
+            const statusTexts = {
+                'pending': 'Pendiente',
+                'approved': 'Aprobada',
+                'rejected': 'Rechazada',
+                'completed': 'Completada'
+            };
+            
+            const statusClasses = {
+                'pending': 'status-pending',
+                'approved': 'status-approved',
+                'rejected': 'status-rejected',
+                'completed': 'status-approved'
+            };
+            
+            // Traducir prioridades
+            const priorityTexts = {
+                'baja': 'Baja',
+                'media': 'Media',
+                'alta': 'Alta'
+            };
+            
+            // Formatear fechas
+            const formattedCreatedDate = formatDate(request.createdAt);
+            const formattedDate = formatDate(request.date);
+            
+            requestCard.innerHTML = `
+                <div class="request-header">
+                    <h3 class="request-title">${request.title}</h3>
+                    <span class="request-status ${statusClasses[request.status]}">${statusTexts[request.status]}</span>
+                </div>
+                <div class="request-details">
+                    <div class="request-detail">
+                        <span class="detail-label">Servicio</span>
+                        <span class="detail-value">${request.serviceName}</span>
+                    </div>
+                    <div class="request-detail">
+                        <span class="detail-label">Fecha Creación</span>
+                        <span class="detail-value">${formattedCreatedDate}</span>
+                    </div>
+                    <div class="request-detail">
+                        <span class="detail-label">Fecha Solicitada</span>
+                        <span class="detail-value">${formattedDate}</span>
+                    </div>
+                    <div class="request-detail">
+                        <span class="detail-label">Prioridad</span>
+                        <span class="detail-value">${priorityTexts[request.priority]}</span>
+                    </div>
+                </div>
+                <div class="request-description">
+                    ${request.description}
+                </div>
+                <div class="request-footer">
+                    ${request.status === 'pending' ? 
+                        `<button class="button secondary-button cancel-request-btn" data-request-id="${request.id}">Cancelar</button>` : ''}
+                    <button class="button primary-button view-request-btn" data-request-id="${request.id}">Ver Detalles</button>
+                </div>
+            `;
+            
+            requestsList.appendChild(requestCard);
         });
-    });
+        
+        // Añadir eventos a los botones de cancelar solicitud
+        document.querySelectorAll('.cancel-request-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const requestId = parseInt(this.getAttribute('data-request-id'));
+                cancelRequest(requestId);
+            });
+        });
+        
+        // Añadir eventos a los botones de ver detalles
+        document.querySelectorAll('.view-request-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const requestId = parseInt(this.getAttribute('data-request-id'));
+                viewRequestDetails(requestId);
+            });
+        });
+    } catch (error) {
+        console.error('Error al cargar solicitudes:', error);
+        showNotification('Error al cargar solicitudes', 'error');
+        
+        // Mostrar mensaje de error en la interfaz
+        if (requestsList) {
+            requestsList.innerHTML = `
+                <div class="empty-state error">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <h3>Error al cargar las solicitudes</h3>
+                    <p>Por favor, intenta recargar la página</p>
+                </div>
+            `;
+        }
+    }
 }
 
-// Inicializar filtros de solicitudes
 function initFilters() {
     const statusFilter = document.getElementById('statusFilter');
     const dateFilter = document.getElementById('dateFilter');
@@ -482,7 +534,6 @@ function initFilters() {
     }
 }
 
-// Inicializar menú de usuario
 function initUserMenu() {
     const userNavLink = document.getElementById('userNavLink');
     const userMenuDropdown = document.getElementById('userMenuDropdown');
@@ -535,16 +586,18 @@ function initUserMenu() {
     if (logoutLink) {
         logoutLink.addEventListener('click', function(e) {
             e.preventDefault();
-            // Aquí iría la lógica de cierre de sesión
-            // Simulamos redireccionamiento
-            alert('Sesión cerrada. Redirigiendo al inicio...');
-            // window.location.href = 'index.html';
+            // Eliminar la sesión del sessionStorage
+            sessionStorage.removeItem('currentUser');
+            showNotification('Sesión cerrada correctamente', 'success');
+            // Redirigir al login después de un breve retraso
+            setTimeout(() => {
+                window.location.href = 'login.html';
+            }, 1000);
         });
     }
 }
 
-// Inicializar modal de solicitudes
-function initRequestModal() {
+async function initRequestModal() {
     const requestModal = document.getElementById('requestModal');
     const newRequestBtn = document.getElementById('newRequestBtn');
     const closeModal = document.getElementById('closeModal');
@@ -555,7 +608,8 @@ function initRequestModal() {
     // Cargar opciones de servicios en el select
     if (serviceSelect) {
         serviceSelect.innerHTML = '<option value="">Selecciona un servicio</option>';
-        mockServices.forEach(service => {
+        const services = await db.getServices();
+        services.forEach(service => {
             const option = document.createElement('option');
             option.value = service.id;
             option.textContent = service.title;
@@ -586,7 +640,7 @@ function initRequestModal() {
     
     // Enviar formulario de solicitud
     if (submitRequest && requestModal) {
-        submitRequest.addEventListener('click', function() {
+        submitRequest.addEventListener('click', async function() {
             const form = document.getElementById('requestForm');
             
             // Validar formulario
@@ -601,36 +655,36 @@ function initRequestModal() {
                 return;
             }
             
-            // Crear nueva solicitud
-            const newRequest = {
-                id: mockRequests.length + 1,
-                title: requestTitle.value,
-                serviceId: parseInt(serviceSelect.value),
-                serviceName: serviceSelect.options[serviceSelect.selectedIndex].text,
-                description: requestDescription.value,
-                date: requestDate.value,
-                createdAt: new Date().toISOString().split('T')[0],
-                status: 'pending',
-                priority: requestPriority.value
-            };
-            
-            // Añadir a la lista de solicitudes
-            mockRequests.push(newRequest);
-            
-            // Actualizar estadísticas
-            mockUser.stats.totalRequests++;
-            mockUser.stats.pendingRequests++;
-            
-            // Recargar listas
-            loadRequests();
-            renderUserProfile();
-            
-            // Cerrar modal y mostrar mensaje
-            closeRequestModal();
-            showNotification('Solicitud enviada correctamente', 'success');
-            
-            // Cambiar a pestaña de solicitudes
-            document.querySelector('.tab-btn[data-tab="requestsTab"]').click();
+            try {
+                // Obtener usuario actual
+                const user = await db.getCurrentUser();
+                
+                // Crear nueva solicitud
+                const newRequest = {
+                    title: requestTitle.value,
+                    serviceId: parseInt(serviceSelect.value),
+                    userId: user.id,
+                    serviceName: serviceSelect.options[serviceSelect.selectedIndex].text,
+                    description: requestDescription.value,
+                    date: requestDate.value,
+                    createdAt: new Date().toISOString().split('T')[0],
+                    status: 'pending',
+                    priority: requestPriority.value
+                };
+                
+                // Añadir solicitud y actualizar interfaz
+                await addNewRequest(newRequest);
+                
+                // Cerrar modal y mostrar notificación
+                showNotification('Solicitud creada correctamente', 'success');
+                closeRequestModal();
+                
+                // Cambiar a pestaña de solicitudes
+                document.querySelector('.tab-btn[data-tab="requestsTab"]').click();
+            } catch (error) {
+                console.error('Error al crear solicitud:', error);
+                showNotification('Error al crear la solicitud', 'error');
+            }
         });
     }
 }
@@ -674,35 +728,52 @@ function closeRequestModal() {
 }
 
 // Cancelar solicitud
-function cancelRequest(requestId) {
+async function cancelRequest(requestId) {
     if (confirm('¿Estás seguro de que deseas cancelar esta solicitud?')) {
-        // Buscar índice de la solicitud
-        const index = mockRequests.findIndex(request => request.id === requestId);
-        
-        if (index !== -1) {
-            // Actualizar estado o eliminar
-            mockRequests[index].status = 'rejected';
+        try {
+            // Obtener la solicitud
+            const request = await db.getRequestById(requestId);
             
-            // Actualizar estadísticas
-            mockUser.stats.pendingRequests--;
-            
-            // Recargar listas
-            loadRequests();
-            renderUserProfile();
-            
-            // Mostrar mensaje
-            showNotification('Solicitud cancelada correctamente', 'success');
+            if (request) {
+                // Actualizar estado a rechazado
+                request.status = 'rejected';
+                await db.updateRequest(requestId, request);
+                
+                // Actualizar estadísticas del usuario
+                const user = await db.getCurrentUser();
+                if (user.stats) {
+                    user.stats.pendingRequests = (user.stats.pendingRequests || 0) - 1;
+                    await db.updateUser(user.id, user);
+                }
+                
+                // Recargar listas
+                await loadRequests();
+                await loadUserData();
+                
+                // Mostrar mensaje
+                showNotification('Solicitud cancelada correctamente', 'success');
+            } else {
+                showNotification('No se encontró la solicitud', 'error');
+            }
+        } catch (error) {
+            console.error('Error al cancelar la solicitud:', error);
+            showNotification('Error al cancelar la solicitud', 'error');
         }
     }
 }
 
-// Ver detalles de solicitud (simulado)
-function viewRequestDetails(requestId) {
-    // Encontrar solicitud
-    const request = mockRequests.find(req => req.id === requestId);
-    
-    if (request) {
-        alert(`Detalles de la solicitud "${request.title}":\n- Servicio: ${request.serviceName}\n- Estado: ${request.status}\n- Fecha: ${request.date}`);
+// Ver detalles de solicitud
+async function viewRequestDetails(requestId) {
+    try {
+        const request = await db.getRequestById(requestId);
+        if (request) {
+            alert(`Detalles de la solicitud "${request.title}":\n- Servicio: ${request.serviceName}\n- Estado: ${request.status}\n- Fecha: ${request.date}`);
+        } else {
+            showNotification('Solicitud no encontrada', 'error');
+        }
+    } catch (error) {
+        console.error('Error al obtener detalles de la solicitud:', error);
+        showNotification('Error al cargar los detalles', 'error');
     }
 }
 
@@ -775,263 +846,203 @@ function closeNotification(notification) {
     }, 300);
 }
 
-// Sistema de persistencia de datos con archivos JSON
-const APP_STORAGE_KEY = 'serviceRequestAppData';
-const JSON_FILENAME = 'app_data.json';
-
-// Comprobar si el archivo JSON existe o crear uno por defecto
-async function checkOrCreateJSONFile() {
-    try {
-        // Intentar cargar el archivo JSON
-        const response = await fetch(JSON_FILENAME);
-        
-        if (!response.ok) {
-            // Si el archivo no existe, crear uno nuevo con datos predeterminados
-            await saveDataToJSON();
-            console.log('Archivo JSON creado con datos predeterminados');
-            return { user: mockUser, requests: mockRequests, services: mockServices };
-        }
-        
-        // Si existe, cargar los datos
-        const data = await response.json();
-        console.log('Datos cargados desde archivo JSON:', data);
-        return data;
-        
-    } catch (error) {
-        console.error('Error al comprobar/crear archivo JSON:', error);
-        // En caso de error, intentar usar localStorage como respaldo
-        const localData = loadFromLocalStorage();
-        await saveDataToJSON(localData);
-        return localData;
-    }
-}
-
-// Cargar datos desde localStorage (respaldo)
-function loadFromLocalStorage() {
-    const storedData = localStorage.getItem(APP_STORAGE_KEY);
-    
-    if (storedData) {
-        try {
-            return JSON.parse(storedData);
-        } catch (error) {
-            console.error('Error al parsear datos de localStorage:', error);
-            return { user: mockUser, requests: mockRequests, services: mockServices };
-        }
-    } else {
-        return { user: mockUser, requests: mockRequests, services: mockServices };
-    }
-}
-
-// Guardar datos en localStorage (respaldo)
-function saveToLocalStorage(data) {
-    try {
-        localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(data));
-        return true;
-    } catch (error) {
-        console.error('Error al guardar en localStorage:', error);
-        return false;
-    }
-}
-
-// Guardar datos en archivo JSON
-async function saveDataToJSON(customData = null) {
-    // Datos a guardar
-    const dataToSave = customData || {
-        user: mockUser,
-        requests: mockRequests,
-        services: mockServices,
-        lastUpdated: new Date().toISOString()
-    };
-    
-    try {
-        // Convertir a blob JSON
-        const jsonBlob = new Blob([JSON.stringify(dataToSave, null, 2)], {type: 'application/json'});
-        
-        // Crear URL del blob
-        const blobUrl = URL.createObjectURL(jsonBlob);
-        
-        // Crear link para descargar el archivo
-        const downloadLink = document.createElement('a');
-        downloadLink.href = blobUrl;
-        downloadLink.download = JSON_FILENAME;
-        
-        // Añadir al DOM, hacer clic y eliminar
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-        
-        // Liberar la URL del blob
-        URL.revokeObjectURL(blobUrl);
-        
-        // Guardar también en localStorage como respaldo
-        saveToLocalStorage(dataToSave);
-        
-        console.log('Archivo JSON guardado y descargado');
-        return true;
-    } catch (error) {
-        console.error('Error al guardar archivo JSON:', error);
-        
-        // Intentar guardar en localStorage como respaldo
-        saveToLocalStorage(dataToSave);
-        
-        showNotification('Error al guardar archivo JSON. Se guardó en localStorage como respaldo.', 'warning');
-        return false;
-    }
-}
-
-// Cargar datos desde JSON o localStorage
+// Sistema de persistencia de datos
 async function loadAppData() {
     try {
-        // Primero intentar cargar desde archivo JSON
-        const data = await checkOrCreateJSONFile();
+        const user = await db.getCurrentUser();
+        if (!user) {
+            throw new Error('No se encontró un usuario con sesión activa');
+        }
         
-        // Actualizar datos de la aplicación
-        if (data.user) mockUser = data.user;
-        if (data.requests) mockRequests = data.requests;
-        if (data.services) mockServices = data.services;
+        const requests = await db.getRequests(user.id);
+        const services = await db.getServices();
         
-        return data;
+        // Asegurarse de que el usuario tenga la propiedad stats
+        if (!user.stats) {
+            user.stats = {
+                totalRequests: 0,
+                pendingRequests: 0,
+                completedRequests: 0
+            };
+            await db.updateUser(user.id, user);
+        }
+        
+        return { user, requests, services };
     } catch (error) {
         console.error('Error al cargar datos:', error);
-        
-        // Intentar cargar desde localStorage como respaldo
-        const localData = loadFromLocalStorage();
-        
-        // Actualizar datos de la aplicación
-        if (localData.user) mockUser = localData.user;
-        if (localData.requests) mockRequests = localData.requests;
-        if (localData.services) mockServices = localData.services;
-        
-        return localData;
+        showNotification('Error al cargar los datos de la aplicación', 'error');
+        throw error;
     }
 }
 
 // Función para actualizar perfil de usuario
 async function updateUserProfile(updatedUserData) {
-    // Actualizar datos del usuario
-    Object.assign(mockUser, updatedUserData);
-    
-    // Guardar en JSON y localStorage
-    await saveDataToJSON();
-    
-    // Actualizar UI
-    renderUserProfile();
-    
-    // Actualizar nombre en la barra de navegación
-    const userNavName = document.getElementById('userNavName');
-    if (userNavName) {
-        userNavName.textContent = mockUser.name;
+    try {
+        // Obtener usuario actual
+        const user = await db.getCurrentUser();
+        
+        // Actualizar datos del usuario
+        const updatedUser = { ...user, ...updatedUserData };
+        
+        // Asegurarse de que tenga la propiedad stats
+        if (!updatedUser.stats) {
+            updatedUser.stats = {
+                totalRequests: 0,
+                pendingRequests: 0,
+                completedRequests: 0
+            };
+        }
+        
+        // Guardar en la base de datos
+        await db.updateUser(user.id, updatedUser);
+        
+        // Actualizar UI
+        await renderUserProfile(updatedUser);
+        
+        // Actualizar nombre en la barra de navegación
+        const userNavName = document.getElementById('userNavName');
+        if (userNavName) {
+            userNavName.textContent = updatedUser.name;
+        }
+        
+        return true;
+    } catch (error) {
+        console.error('Error al actualizar perfil:', error);
+        showNotification('Error al actualizar el perfil', 'error');
+        return false;
     }
 }
 
 // Función para añadir una nueva solicitud
 async function addNewRequest(newRequest) {
-    // Añadir a la lista de solicitudes
-    mockRequests.push(newRequest);
-    
-    // Actualizar estadísticas
-    mockUser.stats.totalRequests++;
-    mockUser.stats.pendingRequests++;
-    
-    // Guardar en JSON y localStorage
-    await saveDataToJSON();
-    
-    // Recargar listas
-    loadRequests();
-    renderUserProfile();
+    try {
+        // Añadir a la base de datos
+        await db.addRequest(newRequest);
+        
+        // Actualizar estadísticas del usuario
+        const user = await db.getCurrentUser();
+        
+        // Asegurarse de que tenga la propiedad stats
+        if (!user.stats) {
+            user.stats = {
+                totalRequests: 0,
+                pendingRequests: 0,
+                completedRequests: 0
+            };
+        }
+        
+        // Incrementar contadores
+        user.stats.totalRequests = (user.stats.totalRequests || 0) + 1;
+        user.stats.pendingRequests = (user.stats.pendingRequests || 0) + 1;
+        
+        // Actualizar usuario
+        await db.updateUser(user.id, user);
+        
+        // Recargar listas
+        await loadRequests();
+        await loadUserData();
+        
+        return true;
+    } catch (error) {
+        console.error('Error al añadir solicitud:', error);
+        showNotification('Error al crear la solicitud', 'error');
+        return false;
+    }
 }
 
 // Función para actualizar estado de una solicitud
 async function updateRequestStatus(requestId, newStatus) {
-    // Buscar índice de la solicitud
-    const index = mockRequests.findIndex(request => request.id === requestId);
-    
-    if (index !== -1) {
-        const oldStatus = mockRequests[index].status;
+    try {
+        // Obtener la solicitud
+        const request = await db.getRequestById(requestId);
+        
+        if (!request) {
+            return false;
+        }
+        
+        const oldStatus = request.status;
         
         // Actualizar estado
-        mockRequests[index].status = newStatus;
+        request.status = newStatus;
+        await db.updateRequest(requestId, request);
         
-        // Actualizar estadísticas
+        // Actualizar estadísticas del usuario
+        const user = await db.getCurrentUser();
+        
+        // Asegurarse de que tenga la propiedad stats
+        if (!user.stats) {
+            user.stats = {
+                totalRequests: 0,
+                pendingRequests: 0,
+                completedRequests: 0
+            };
+        }
+        
+        // Actualizar contadores
         if (oldStatus === 'pending' && newStatus !== 'pending') {
-            mockUser.stats.pendingRequests--;
+            user.stats.pendingRequests = Math.max(0, (user.stats.pendingRequests || 0) - 1);
         }
         
         if (newStatus === 'completed') {
-            mockUser.stats.completedRequests++;
+            user.stats.completedRequests = (user.stats.completedRequests || 0) + 1;
         }
         
-        // Guardar en JSON y localStorage
-        await saveDataToJSON();
+        // Actualizar usuario
+        await db.updateUser(user.id, user);
         
         return true;
+    } catch (error) {
+        console.error('Error al actualizar estado de solicitud:', error);
+        return false;
     }
-    
-    return false;
 }
 
 // Función para reiniciar datos a valores predeterminados
 async function resetToDefaultData() {
     if (confirm('¿Estás seguro de que deseas reiniciar todos los datos? Esta acción no se puede deshacer.')) {
-        localStorage.removeItem(APP_STORAGE_KEY);
-        
-        // Restaurar datos predeterminados
-        mockUser = {
-            id: 1,
-            name: "Carlos Rodríguez",
-            email: "carlos.rodriguez@ejemplo.com",
-            phone: "+34 623 456 789",
-            address: "Calle Principal 123, Madrid",
-            avatar: "/api/placeholder/150/150",
-            role: "Usuario",
-            stats: {
-                totalRequests: 8,
-                pendingRequests: 3,
-                completedRequests: 5
-            }
-        };
-        
-        mockRequests = [
-            {
+        try {
+            // Limpiar sessionStorage
+            sessionStorage.clear();
+            
+            // Reiniciar la base de datos
+            await db.resetDatabase();
+            
+            // Inicializar servicios predeterminados
+            await db.initDefaultServices();
+            
+            // Crear usuario predeterminado
+            const defaultUser = {
                 id: 1,
-                title: "Reparación de PC",
-                serviceId: 1,
-                serviceName: "Soporte Técnico",
-                description: "Mi computadora está fallando al iniciar y emite pitidos extraños.",
-                date: "2025-04-20",
-                createdAt: "2025-04-10",
-                status: "pending",
-                priority: "alta"
-            },
-            {
-                id: 2,
-                title: "Instalación de servidor",
-                serviceId: 2,
-                serviceName: "Mantenimiento de Red",
-                description: "Necesitamos instalar un nuevo servidor para nuestra oficina.",
-                date: "2025-05-01",
-                createdAt: "2025-04-05",
-                status: "approved",
-                priority: "media"
-            },
-            {
-                id: 3,
-                title: "Desarrollo de landing page",
-                serviceId: 3,
-                serviceName: "Desarrollo Web",
-                description: "Necesitamos una página web para nuestra nueva campaña.",
-                date: "2025-04-25",
-                createdAt: "2025-03-30",
-                status: "completed",
-                priority: "baja"
-            }
-        ];
-        
-        // Guardar datos predeterminados
-        await saveDataToJSON();
-        
-        // Recargar la página
-        location.reload();
+                name: "Carlos Rodríguez",
+                email: "carlos.rodriguez@ejemplo.com",
+                phone: "+34 623 456 789",
+                address: "Calle Principal 123, Madrid",
+                avatar: "/api/placeholder/150/150",
+                role: "Usuario",
+                stats: {
+                    totalRequests: 0,
+                    pendingRequests: 0,
+                    completedRequests: 0
+                }
+            };
+            
+            // Guardar usuario predeterminado
+            await db.addUser(defaultUser);
+            
+            // Guardar en sessionStorage
+            sessionStorage.setItem('currentUser', JSON.stringify(defaultUser));
+            
+            // Mostrar mensaje
+            showNotification('Datos reiniciados correctamente', 'success');
+            
+            // Recargar la página después de un breve retraso
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } catch (error) {
+            console.error('Error al reiniciar datos:', error);
+            showNotification('Error al reiniciar los datos', 'error');
+        }
     }
 }
 
@@ -1075,16 +1086,28 @@ function addImportDataButton() {
             if (this.files && this.files[0]) {
                 try {
                     const file = this.files[0];
-                    const fileContent = await file.text();
-                    const importedData = JSON.parse(fileContent);
+                    const importedData = JSON.parse(await file.text());
                     
-                    // Actualizar datos de la aplicación
-                    if (importedData.user) mockUser = importedData.user;
-                    if (importedData.requests) mockRequests = importedData.requests;
-                    if (importedData.services) mockServices = importedData.services;
+                    // Usar transacciones de la base de datos
+                    const transaction = db.db.transaction(['services', 'requests'], 'readwrite');
                     
-                    // Guardar en localStorage como respaldo
-                    saveToLocalStorage(importedData);
+                    // Importar servicios
+                    if (importedData.services) {
+                        const serviceStore = transaction.objectStore('services');
+                        for (const service of importedData.services) {
+                            serviceStore.put(service);
+                        }
+                    }
+                    
+                    // Importar solicitudes
+                    if (importedData.requests) {
+                        const requestStore = transaction.objectStore('requests');
+                        for (const request of importedData.requests) {
+                            requestStore.put(request);
+                        }
+                    }
+                    
+                    await transaction.complete;
                     
                     // Recargar UI
                     loadUserData();
@@ -1227,73 +1250,45 @@ function hideLoading() {
 }
 
 // Modificar renderUserProfile para usar la función de actualización
-function renderUserProfile() {
-    const userProfile = document.getElementById('userProfile');
-    
-    if (!userProfile) return;
-    
-    userProfile.innerHTML = `
-        <div class="profile-header">
-            <div class="profile-avatar">
-                <img src="${mockUser.avatar}" alt="${mockUser.name}">
-            </div>
-            <div class="profile-info">
-                <h2>${mockUser.name}</h2>
-                <p>${mockUser.email}</p>
-                <p><i class="fas fa-phone"></i> ${mockUser.phone}</p>
-            </div>
-        </div>
-        
-        <div class="profile-stats">
-            <div class="stat-card">
-                <div class="stat-value">${mockUser.stats.totalRequests}</div>
-                <div class="stat-label">Total Solicitudes</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">${mockUser.stats.pendingRequests}</div>
-                <div class="stat-label">Pendientes</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">${mockUser.stats.completedRequests}</div>
-                <div class="stat-label">Completadas</div>
-            </div>
-        </div>
-        
-        <div class="profile-section">
-            <h3>Información Personal</h3>
-            <div class="profile-form">
-                <div class="form-group">
-                    <label for="profileName">Nombre Completo</label>
-                    <input type="text" id="profileName" value="${mockUser.name}" disabled>
-                </div>
-                <div class="form-group">
-                    <label for="profileEmail">Correo Electrónico</label>
-                    <input type="email" id="profileEmail" value="${mockUser.email}" disabled>
-                </div>
-                <div class="form-group">
-                    <label for="profilePhone">Teléfono</label>
-                    <input type="tel" id="profilePhone" value="${mockUser.phone}" disabled>
-                </div>
-                <div class="form-group">
-                    <label for="profileAddress">Dirección</label>
-                    <input type="text" id="profileAddress" value="${mockUser.address}" disabled>
-                </div>
-                <div class="form-actions">
-                    <button id="editProfileButton" class="button primary-button">Editar Perfil</button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Añadir evento al botón de editar perfil
+// Función para configurar el botón de editar perfil
+
+// Función para configurar el botón de editar perfil
+function setupEditProfileButton(user) {
     const editProfileButton = document.getElementById('editProfileButton');
     if (editProfileButton) {
-        editProfileButton.addEventListener('click', function() {
+        editProfileButton.addEventListener('click', async function() {
+            const userProfile = document.querySelector('#userProfile');
             const inputs = userProfile.querySelectorAll('input[disabled]');
             
             // Si ya están habilitados los campos, guardar los cambios
             if (this.textContent === 'Guardar Cambios') {
-                handleProfileUpdate();
+                const inputs = userProfile.querySelectorAll('input:not([disabled])');
+                const updatedUserData = {};
+                
+                inputs.forEach(input => {
+                    const field = input.id.replace('profile', '').toLowerCase();
+                    updatedUserData[field] = input.value;
+                    input.disabled = true;
+                });
+                
+                try {
+                    // Actualizar usuario en la base de datos
+                    await db.updateUser(user.id, updatedUserData);
+                    
+                    // Actualizar UI
+                    const userNavName = document.getElementById('userNavName');
+                    if (userNavName) {
+                        userNavName.textContent = updatedUserData.name;
+                    }
+                    
+                    showNotification('Perfil actualizado correctamente', 'success');
+                    
+                    // Cambiar botón de vuelta a "Editar perfil" o texto original
+                    this.textContent = 'Editar Perfil';
+                } catch (error) {
+                    console.error('Error al actualizar perfil:', error);
+                    showNotification('Error al actualizar el perfil', 'error');
+                }
                 return;
             }
             
@@ -1305,104 +1300,5 @@ function renderUserProfile() {
             // Cambiar botón a Guardar
             this.textContent = 'Guardar Cambios';
         });
-    }
-}
-
-// Modificar la función submitRequest para usar addNewRequest
-function initRequestModal() {
-    const requestModal = document.getElementById('requestModal');
-    const newRequestBtn = document.getElementById('newRequestBtn');
-    const closeModal = document.getElementById('closeModal');
-    const cancelRequest = document.getElementById('cancelRequest');
-    const submitRequest = document.getElementById('submitRequest');
-    const serviceSelect = document.getElementById('serviceSelect');
-    
-    // Cargar opciones de servicios en el select
-    if (serviceSelect) {
-        serviceSelect.innerHTML = '<option value="">Selecciona un servicio</option>';
-        mockServices.forEach(service => {
-            const option = document.createElement('option');
-            option.value = service.id;
-            option.textContent = service.title;
-            serviceSelect.appendChild(option);
-        });
-    }
-    
-    // Abrir modal con botón de nueva solicitud
-    if (newRequestBtn && requestModal) {
-        newRequestBtn.addEventListener('click', function() {
-            openRequestModal();
-        });
-    }
-    
-    // Cerrar modal
-    if (closeModal && requestModal) {
-        closeModal.addEventListener('click', function() {
-            closeRequestModal();
-        });
-    }
-    
-    // Cerrar modal con botón cancelar
-    if (cancelRequest && requestModal) {
-        cancelRequest.addEventListener('click', function() {
-            closeRequestModal();
-        });
-    }
-    
-    // Enviar formulario de solicitud
-    if (submitRequest && requestModal) {
-        submitRequest.addEventListener('click', async function() {
-            const form = document.getElementById('requestForm');
-            
-            // Validar formulario
-            const serviceSelect = document.getElementById('serviceSelect');
-            const requestTitle = document.getElementById('requestTitle');
-            const requestDescription = document.getElementById('requestDescription');
-            const requestDate = document.getElementById('requestDate');
-            const requestPriority = document.getElementById('requestPriority');
-            
-            if (!serviceSelect.value || !requestTitle.value || !requestDescription.value || !requestDate.value) {
-                showNotification('Por favor, completa todos los campos obligatorios', 'error');
-                return;
-            }
-            
-            // Crear nueva solicitud
-            const newRequest = {
-                id: mockRequests.length > 0 ? Math.max(...mockRequests.map(r => r.id)) + 1 : 1,
-                title: requestTitle.value,
-                serviceId: parseInt(serviceSelect.value),
-                serviceName: serviceSelect.options[serviceSelect.selectedIndex].text,
-                description: requestDescription.value,
-                date: requestDate.value,
-                createdAt: new Date().toISOString().split('T')[0],
-                status: 'pending',
-                priority: requestPriority.value
-            };
-            
-            // Añadir y guardar
-            await addNewRequest(newRequest);
-            
-            // Cerrar modal y mostrar mensaje
-            closeRequestModal();
-            showNotification('Solicitud enviada correctamente', 'success');
-            
-            // Cambiar a pestaña de solicitudes
-            document.querySelector('.tab-btn[data-tab="requestsTab"]').click();
-        });
-    }
-}
-
-// Modificar cancelRequest para usar updateRequestStatus
-async function cancelRequest(requestId) {
-    if (confirm('¿Estás seguro de que deseas cancelar esta solicitud?')) {
-        // Actualizar estado a rechazado
-        if (await updateRequestStatus(requestId, 'rejected')) {
-            // Recargar listas
-            loadRequests();
-            renderUserProfile();
-            
-            // Mostrar mensaje
-            showNotification('Solicitud cancelada correctamente', 'success');
-        }
     }
 }

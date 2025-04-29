@@ -793,3 +793,22 @@
     background-color: #eee;
     margin: 5px 0;
   }
+  .loading-state {
+    text-align: center;
+    padding: 2rem;
+}
+
+.loading-state i {
+    font-size: 2rem;
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+}
+
+.fa-spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}

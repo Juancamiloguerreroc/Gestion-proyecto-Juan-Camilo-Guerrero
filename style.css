@@ -284,9 +284,19 @@ tbody tr:hover {
 
 /* Alertas y notificaciones */
 .alert {
-    padding: 1rem;
-    border-radius: var(--border-radius);
-    margin-bottom: 1.5rem;
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 4px;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+
+.hidden {
+    display: none;
 }
 
 .alert-success {
